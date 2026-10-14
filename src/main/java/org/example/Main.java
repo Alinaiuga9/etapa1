@@ -1,4 +1,4 @@
-package org.example; // Schimbă cu 'wordfrequency' dacă clasa ta Main e în acel pachet
+package org.example;
 
 import wordfrequency.PorterStemer; // Asigură-te că pachetul este corect
 
@@ -15,24 +15,23 @@ import java.util.stream.Stream;
 
 public class Main {
 
-    // Căile către foldere și fișiere
+
     private static final String RESOURCES_PATH = "src/main/resources/";
     private static final String STOPWORDS_FILE = RESOURCES_PATH + "stopwords.txt";
     private static final String TRAINING_DIR = RESOURCES_PATH + "Training";
     private static final String TESTING_DIR = RESOURCES_PATH + "Testing";
     private static final String OUTPUT_FILE = "rezultat.txt";
 
-    // Dicționarul global: asociază fiecare cuvânt unic cu un index (poziția lui)
     private static Map<String, Integer> globalDictionary = new LinkedHashMap<>();
     private static Set<String> stopWords = new HashSet<>();
     private static PorterStemer stemmer = new PorterStemer();
 
-    // Clasă internă pentru a stoca informațiile fiecărui document
+
     static class DocumentData {
         String docName;
         String folderName;
         List<String> topics = new ArrayList<>();
-        Map<Integer, Integer> sparseVector = new TreeMap<>(); // Mapare: indexCuvant -> frecventa
+        Map<Integer, Integer> sparseVector = new TreeMap<>();
     }
 
     public static void main(String[] args) {
@@ -71,7 +70,7 @@ public class Main {
         }
     }
 
-    // Parcurge toate fișierele dintr-un folder
+
     private static List<DocumentData> processFolder(Path folderPath, String folderName) throws IOException {
         List<DocumentData> documents = new ArrayList<>();
 
@@ -89,27 +88,27 @@ public class Main {
         return documents;
     }
 
-    // Extrage informațiile și cuvintele dintr-un singur fișier
+
     private static DocumentData processSingleFile(Path filePath, String folderName) throws IOException {
         String content = Files.readString(filePath);
         DocumentData doc = new DocumentData();
         doc.docName = filePath.getFileName().toString().replace(".txt", "").replace(".XML", "");
         doc.folderName = folderName;
 
-        // 1. Extragere titlu și text
+
         String title = extractTagContent(content, "<title>", "</title>");
         String text = extractTagContent(content, "<text>", "</text>");
         String fullText = title + " " + text;
 
-        // 2. Extragere topics
+
         doc.topics = extractTopics(content);
 
-        // 3. Curățare text: elimină tag-uri XML rămase (cum ar fi <p>, </p>), cifre și semne de punctuație
+
         fullText = fullText.replaceAll("<[^>]+>", " "); // elimină orice tag
         fullText = fullText.replaceAll("[^a-zA-Z\\s]", " "); // păstrează doar litere (fără cifre/punctuație)
         fullText = fullText.toLowerCase();
 
-        // 4. Tokenizare, eliminare stopwords și stemming
+
         String[] words = fullText.split("\\s+");
         Map<String, Integer> wordFrequencies = new HashMap<>();
 
@@ -126,12 +125,11 @@ public class Main {
             }
         }
 
-        // 5. Adăugare în dicționarul global și formare vector rar pentru acest document
+
         for (Map.Entry<String, Integer> entry : wordFrequencies.entrySet()) {
             String word = entry.getKey();
             int frequency = entry.getValue();
 
-            // Dacă cuvântul e nou, îl adăugăm în dicționarul global
             if (!globalDictionary.containsKey(word)) {
                 globalDictionary.put(word, globalDictionary.size()); // indexul va fi mărimea curentă
             }
@@ -143,7 +141,6 @@ public class Main {
         return doc;
     }
 
-    // Metodă ajutătoare pentru extragerea conținutului dintre două tag-uri
     private static String extractTagContent(String source, String startTag, String endTag) {
         int startIndex = source.indexOf(startTag);
         int endIndex = source.indexOf(endTag);
@@ -153,14 +150,14 @@ public class Main {
         return "";
     }
 
-    // Metodă pentru a extrage codurile de topics
+
     private static List<String> extractTopics(String content) {
         List<String> topics = new ArrayList<>();
-        // Căutăm blocul <codes class="bip:topics:1.0"> ... </codes>
+
         String topicsBlock = extractTagContent(content, "<codes class=\"bip:topics:1.0\">", "</codes>");
 
         if (!topicsBlock.isEmpty()) {
-            // Extragem fiecare atribut code="..." din interiorul blocului
+
             Pattern codePattern = Pattern.compile("<code code=\"([^\"]+)\"");
             Matcher matcher = codePattern.matcher(topicsBlock);
             while (matcher.find()) {
@@ -170,33 +167,32 @@ public class Main {
         return topics;
     }
 
-    // Generează fișierul final respectând formatul din PDF
+
     private static void generateOutputFile(List<DocumentData> documents) throws IOException {
         Path outPath = Paths.get(OUTPUT_FILE);
 
         try (BufferedWriter writer = Files.newBufferedWriter(outPath)) {
-            // 1. Scriem dicționarul global
+
             for (String word : globalDictionary.keySet()) {
                 writer.write("@attribute " + word);
                 writer.newLine();
             }
 
-            // 2. Scriem @data
+
             writer.write("@data");
             writer.newLine();
 
-            // 3. Scriem fiecare document
+
             for (DocumentData doc : documents) {
                 StringBuilder line = new StringBuilder();
                 line.append(doc.docName).append(" # ");
 
-                // Vectorul rar (ex: 0:1 3:2 7:1)
                 for (Map.Entry<Integer, Integer> entry : doc.sparseVector.entrySet()) {
                     line.append(entry.getKey()).append(":").append(entry.getValue()).append(" ");
                 }
                 line.append("# ");
 
-                // Topicurile (ex: clu cla ml)
+
                 if (doc.topics.isEmpty()) {
                     line.append("none ");
                 } else {
